@@ -6,6 +6,7 @@ import android.os.AsyncTask;
 import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -18,10 +19,12 @@ import org.json.JSONObject;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
-public class HttpRequest extends AsyncTask<String, Void, String>
+public class HttpRequest extends AsyncTask<String, Void, Boolean>
 {
     private Context context;
+    private Database db;
 
     HttpRequest(Context context)
     {
@@ -35,17 +38,18 @@ public class HttpRequest extends AsyncTask<String, Void, String>
     }
 
     @Override
-    protected String doInBackground(String... urls)
+    protected Boolean doInBackground(String... urls)
     {
-        String result = "";
-        SimpleDateFormat format = new SimpleDateFormat("dd-MM-yyyy");
-        String currentDate = format.format(new Date());
+        Boolean result = true;
+        db = new Database(context);
 
         try
         {
+            String studentID = UserInterface.getStudentID(context);
+            Log.i("stuid", studentID);
             DefaultHttpClient httpclient = new DefaultHttpClient();
             HttpGet request = new HttpGet();
-            URI website = new URI("http://plan.zut.edu.pl/api/schedule/36225");
+            URI website = new URI("http://plan.zut.edu.pl/api/schedule/" + studentID);
             request.setURI(website);
             HttpResponse response = httpclient.execute(request);
 
@@ -57,54 +61,76 @@ public class HttpRequest extends AsyncTask<String, Void, String>
                 String data = EntityUtils.toString(entity);
                 JSONArray jsonArray = new JSONArray(data);
 
+                db.clearDatabase();
+
                 for(int i = 0; i < jsonArray.length(); i++)
                 {
                     JSONObject day = jsonArray.getJSONObject(i);
                     JSONArray lessons = (JSONArray)day.get("lessons");
+
                     String date = (String)day.get("date");
+                    date = DateTimeUtils.changeDateFormat(date, "dd-MM-yyyy", "yyyy-MM-dd");
 
                     for(int j = 0; j < lessons.length(); j++)
                     {
-                        JSONObject lesson = lessons.getJSONObject(j);
-                        String room = (String)lesson.get("room");
-                        String courseType = (String)lesson.get("courseType");
-                        String subject = (String)lesson.get("subject");
-                        String semester = (String)lesson.get("semester");
-                        String faculty = (String)lesson.get("faculty");
-                        String facultyAbbreviation = (String)lesson.get("facultyAbbreviation");
-                        String fieldOfStudy = (String)lesson.get("fieldOfStudy");
-                        String reservationStatus = (String)lesson.get("reservationStatus");
-                        String reservationStatusAbbreviation = (String)lesson.get("reservationStatusAbbreviation");
-                        String status = (String)lesson.get("status");
-                        String group = (String)lesson.get("group");
+                        JSONObject jsonLesson = lessons.getJSONObject(j);
+                        JSONObject teacher = (JSONObject)jsonLesson.get("teacher");
+                        JSONObject timeRange = (JSONObject)jsonLesson.get("timeRange");
 
-                        //teacher timeRange
+                        Lesson lesson = new Lesson();
 
-                        if(date.equals(currentDate))
-                        {
-                            result += date + " " + subject + " " + reservationStatus + " " + room + '\n' + '\n';
-                        }
+                        lesson.setRoom((String)jsonLesson.optString("room"));
+                        lesson.setCourseType((String)jsonLesson.optString("courseType"));
+                        lesson.setSubject((String)jsonLesson.optString("subject"));
+                        lesson.setSemester((String)jsonLesson.optString("semester"));
+                        lesson.setFaculty((String)jsonLesson.optString("faculty"));
+                        lesson.setFacultyAbbreviation((String)jsonLesson.optString("facultyAbbreviation"));
+                        lesson.setFieldOfStudy((String)jsonLesson.optString("fieldOfStudy"));
+                        lesson.setReservationStatus((String)jsonLesson.optString("reservationStatus"));
+                        lesson.setReservationStatusAbbreviation((String)jsonLesson.optString("reservationStatusAbbreviation"));
+                        lesson.setStatus((String)jsonLesson.optString("status"));
+                        lesson.setGroup((String)jsonLesson.optString("group"));
 
-                        Log.i("json_result", date + " " + subject + " " + reservationStatusAbbreviation);
+                        lesson.setAcademicTitle((String)teacher.optString("academicTitle"));
+                        lesson.setName((String)teacher.optString("name"));
+                        lesson.setSurname((String)teacher.optString("surname"));
+
+                        lesson.setFrom(date + " " + (String)timeRange.optString("from") + ":00");
+                        lesson.setTo(date + " " + (String)timeRange.optString("to") + ":00");
+
+                        db.insertLesson(lesson);
                     }
                 }
-
-                if(result.length() == 0)
-                {
-                    result = "Brak zajęć";
-                }
             }
-        } catch(Exception e)
+            else
+            {
+                result = false;
+            }
+
+        }
+        catch(Exception e)
         {
             Log.e("log_tag", "Error in http connection: "+e.toString());
+            e.printStackTrace();
+            result = false;
         }
 
         return result;
     }
 
-    protected void onPostExecute(String result)
+    protected void onPostExecute(Boolean result)
     {
-        TextView textView = (TextView)((Activity)this.context).findViewById(R.id.textView);
-        textView.setText(result);
+        if(result)
+        {
+            String dateFrom = DateTimeUtils.now();
+            String dateTo = DateTimeUtils.now(7);
+
+            List<Lesson> lessons = db.getLessonsBetween(dateFrom, dateTo);
+            UserInterface.updateSchedule(lessons, context);
+        }
+        else
+        {
+            Toast.makeText(context, "Connection error!", Toast.LENGTH_SHORT).show();
+        }
     }
 }
