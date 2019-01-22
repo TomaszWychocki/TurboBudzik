@@ -1,6 +1,7 @@
 package com.example.turbobudzik;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.util.Log;
@@ -25,6 +26,7 @@ public class HttpRequest extends AsyncTask<String, Void, Boolean>
 {
     private Context context;
     private Database db;
+    private ProgressDialog progressBar;
 
     HttpRequest(Context context)
     {
@@ -35,6 +37,14 @@ public class HttpRequest extends AsyncTask<String, Void, Boolean>
     protected void onPreExecute()
     {
         super.onPreExecute();
+
+        progressBar = new ProgressDialog(context);
+        progressBar.setCancelable(false);
+        progressBar.setMessage("Pobieranie planu zajęć...");
+        progressBar.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        progressBar.setProgress(0);
+        progressBar.setMax(100);
+        progressBar.show();
     }
 
     @Override
@@ -132,5 +142,7 @@ public class HttpRequest extends AsyncTask<String, Void, Boolean>
         {
             Toast.makeText(context, "Connection error!", Toast.LENGTH_SHORT).show();
         }
+
+        progressBar.dismiss();
     }
 }
