@@ -71,9 +71,9 @@ public class Database extends SQLiteOpenHelper
         List<Lesson> Lessons = new ArrayList<>();
 
         String selectQuery = "SELECT * FROM " + Lesson.TABLE_NAME
-                + " WHERE " + Lesson.COLUMN_FROM + " >= \"" + dateFrom + "\""
-                + " AND " + Lesson.COLUMN_FROM + " <= \"" + dateTo + "\""
-                + " ORDER BY " + Lesson.COLUMN_FROM + " ASC";
+                + " WHERE " + Lesson.COLUMN_TO + " >= \"" + dateFrom + "\""
+                + " AND " + Lesson.COLUMN_TO + " <= \"" + dateTo + "\""
+                + " ORDER BY " + Lesson.COLUMN_TO + " ASC";
 
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);
