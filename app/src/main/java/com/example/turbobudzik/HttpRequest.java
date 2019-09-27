@@ -27,6 +27,8 @@ public class HttpRequest extends AsyncTask<String, Void, Boolean>
     private Context context;
     private Database db;
     private ProgressDialog progressBar;
+    private int httpStatus;
+    private String message = "";
 
     HttpRequest(Context context)
     {
@@ -63,7 +65,7 @@ public class HttpRequest extends AsyncTask<String, Void, Boolean>
             request.setURI(website);
             HttpResponse response = httpclient.execute(request);
 
-            int httpStatus = response.getStatusLine().getStatusCode();
+            httpStatus = response.getStatusLine().getStatusCode();
 
             if (httpStatus == 200)
             {
@@ -112,6 +114,19 @@ public class HttpRequest extends AsyncTask<String, Void, Boolean>
                     }
                 }
             }
+            else if (httpStatus == 404)
+            {
+                HttpEntity entity = response.getEntity();
+                String data = EntityUtils.toString(entity);
+
+                if (!data.isEmpty())
+                {
+                    JSONObject reader = new JSONObject(data);
+                    message = reader.getString("message");
+                }
+
+                result = false;
+            }
             else
             {
                 result = false;
@@ -138,9 +153,14 @@ public class HttpRequest extends AsyncTask<String, Void, Boolean>
             List<Lesson> lessons = db.getLessonsBetween(dateFrom, dateTo);
             UserInterface.updateSchedule(lessons, context);
         }
+        else if (!message.isEmpty())
+        {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+        }
         else
         {
-            Toast.makeText(context, "Connection error!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, "Connection error! HTTP " + httpStatus,
+                           Toast.LENGTH_LONG).show();
         }
 
         progressBar.dismiss();
